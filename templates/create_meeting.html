@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Meeting Minutes</title>
+</head>
+<body>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h2>{{ legend }}</h2> <form method="POST" action="">
+        {{ form.hidden_tag() }} <fieldset> <div>
+                {{ form.title.label }}<br>
+                {{ form.title(size=30) }}<br>
+                {% if form.title.errors %}
+                    {% for error in form.title.errors %}
+                        <span style="color: red;">[{{ error }}]</span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+             <div>
+                {{ form.meeting_date.label }}<br>
+                {{ form.meeting_date() }}<br> {% if form.meeting_date.errors %}
+                    {% for error in form.meeting_date.errors %}
+                        <span style="color: red;">[{{ error }}]</span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+             <div>
+                {{ form.attendees.label }}<br>
+                {{ form.attendees(rows=3, cols=30) }}<br>
+                {% if form.attendees.errors %}
+                    {% for error in form.attendees.errors %}
+                        <span style="color: red;">[{{ error }}]</span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+             <div>
+                {{ form.agenda.label }}<br>
+                {{ form.agenda(rows=5, cols=30) }}<br>
+                {% if form.agenda.errors %}
+                    {% for error in form.agenda.errors %}
+                        <span style="color: red;">[{{ error }}]</span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+             <div>
+                {{ form.minutes.label }}<br>
+                {{ form.minutes(rows=10, cols=30) }}<br>
+                {% if form.minutes.errors %}
+                    {% for error in form.minutes.errors %}
+                        <span style="color: red;">[{{ error }}]</span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+             <div>
+                {{ form.action_items.label }}<br>
+                {{ form.action_items(rows=5, cols=30) }}<br>
+                {% if form.action_items.errors %}
+                    {% for error in form.action_items.errors %}
+                        <span style="color: red;">[{{ error }}]</span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </fieldset>
+        <div>
+            {{ form.submit() }}
+        </div>
+    </form>
+    <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+</body>
+</html>

@@ -13,6 +13,8 @@ from flask import request # Needed for 'next' parameter in login
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField
 from wtforms.validators import DataRequired
+from wtforms.fields import DateField # Correct import for WTForms 3+
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField # Add TextAreaField
 
 # Create a Flask application instance
 app = Flask(__name__)
@@ -49,9 +51,11 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(60), nullable=False)
 
     # No need to define is_authenticated, is_active, etc. manually
-
+    # Relationship: One-to-Many (One User can have Many Meetings)
+    meetings = db.relationship('Meeting', backref='author', lazy=True)
     def __repr__(self):
         return f"User('{self.username}')"
+    pass
 
 # --- Define Forms ---
 class RegistrationForm(FlaskForm):
@@ -162,6 +166,23 @@ def login():
     # If GET request or login failed, render the login page again
     return render_template('login.html', title='Login', form=form)
 
+
+
+# ... (RegistrationForm, LoginForm) ...
+
+class MeetingForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired()])
+    # Using DateField for browser's native date picker
+    meeting_date = DateField('Meeting Date', format='%Y-%m-%d', validators=[DataRequired()])
+    # Using TextAreaField for potentially multi-line text
+    attendees = TextAreaField('Attendees')
+    agenda = TextAreaField('Agenda', validators=[DataRequired()])
+    minutes = TextAreaField('Minutes')
+    action_items = TextAreaField('Action Items')
+    submit = SubmitField('Save Meeting')
+
+# ... (Routes definition) ...
+
 @app.route('/logout')
 def logout():
     logout_user() # Logs the user out (clears the session)
@@ -170,11 +191,43 @@ def logout():
 
 
 
-@app.route('/meetings')
-@login_required # This decorator protects the route
-def meetings():
-    # ... logic to show meetings ...
-    pass
+# --- Routes ---
+# ... (index, register, login, logout routes) ...
+
+@app.route("/meeting/new", methods=['GET', 'POST'])
+@login_required # Only logged-in users can create meetings
+def new_meeting():
+    form = MeetingForm()
+    if form.validate_on_submit():
+        # Create a new Meeting object using form data
+        # Note: We set the 'author' using the backref, SQLAlchemy handles user_id
+        meeting = Meeting(title=form.title.data,
+                          meeting_date=form.meeting_date.data,
+                          attendees=form.attendees.data,
+                          agenda=form.agenda.data,
+                          minutes=form.minutes.data,
+                          action_items=form.action_items.data,
+                          author=current_user) # Associate with the logged-in user
+        db.session.add(meeting)
+        db.session.commit()
+        flash('Your meeting has been created!', 'success')
+        # Redirect to homepage for now, later maybe to a meetings list page
+        return redirect(url_for('index'))
+    # If GET request, render the form
+    return render_template('create_meeting.html', title='New Meeting', form=form, legend='New Meeting')
+
+
+
+@app.route("/meetings")
+@login_required # <--- این دکوراتور رو دوباره فعال کن!
+def meetings_list():
+    # Query the database for all meetings authored by the current user
+    # Order them by date posted in descending order (newest first)
+    meetings = Meeting.query.filter_by(author=current_user)\
+                            .order_by(Meeting.date_posted.desc()).all()
+    # Render the template, passing the list of meetings to it
+    return render_template('meetings.html', title='My Meetings', meetings=meetings)
+
 
 # --- End Routes ---
 
