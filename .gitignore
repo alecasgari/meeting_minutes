@@ -12,4 +12,4 @@ Thumbs.db
 .vscode/
 
 # Instance folder (for Flask secrets, etc.)
-instance/
+instance/"site.db" 
