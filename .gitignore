@@ -1,0 +1,15 @@
+# Virtual Environment
+venv/
+*.pyc
+__pycache__/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files (optional, add your specific IDE if needed)
+.idea/
+.vscode/
+
+# Instance folder (for Flask secrets, etc.)
+instance/
