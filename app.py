@@ -16,7 +16,10 @@ from wtforms.validators import DataRequired
 from wtforms.fields import DateField # Correct import for WTForms 3+
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField # Add TextAreaField
 from flask import abort # Import abort at the top
-
+from fpdf import FPDF
+from flask import make_response
+import io
+from fpdf.enums import XPos, YPos
 # Create a Flask application instance
 app = Flask(__name__)
 
@@ -248,6 +251,69 @@ def meeting_detail(meeting_id):
 
     # Render a template, passing the specific meeting object to it
     return render_template('meeting_detail.html', title=meeting.title, meeting=meeting)
+
+
+
+@app.route("/meeting/<int:meeting_id>/pdf")
+@login_required
+def generate_meeting_pdf(meeting_id):
+    # 1. Get Meeting Data (or 404)
+    meeting = Meeting.query.get_or_404(meeting_id)
+
+    # 2. Authorization Check
+    if meeting.author != current_user:
+        abort(403)
+
+    # 3. Create PDF object
+    pdf = FPDF()
+    pdf.add_page()
+
+    # 4. Set Font (Using Arial, will fallback to Helvetica)
+    # Note: Font warnings might still appear if Arial isn't truly available/embedded
+    pdf.set_font('Arial', '', 12)
+
+    # 5. Add Content to PDF
+    # --- Title ---
+    pdf.set_font('Arial', 'B', 16)
+    # Use new_x and new_y instead of ln=True
+    pdf.cell(0, 10, f'Meeting Minutes: {meeting.title}', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+    pdf.ln(10) # Keep pdf.ln() for adding vertical space explicitly
+
+    # --- Basic Info ---
+    pdf.set_font('Arial', '', 12)
+    # Use new_x and new_y instead of ln=True
+    pdf.cell(0, 7, f'Date: {meeting.meeting_date.strftime("%Y-%m-%d")}', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 7, f'Recorded By: {meeting.author.username}', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(5)
+
+    # --- Sections (using multi_cell for wrapping text) ---
+    # Helper function to add sections consistently
+    def add_section(title, content):
+        pdf.set_font('Arial', 'B', 14)
+        # Use new_x and new_y instead of ln=True for the section title cell
+        pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('Arial', '', 12)
+        # multi_cell handles line breaks internally, no ln=True needed here
+        pdf.multi_cell(0, 5, content if content else "N/A")
+        pdf.ln(5) # Add space after the multi_cell content
+
+    # Add the actual sections using the helper function
+    add_section('Attendees', meeting.attendees)
+    add_section('Agenda', meeting.agenda)
+    add_section('Minutes', meeting.minutes)
+    add_section('Action Items', meeting.action_items)
+
+    # 6. Generate PDF output into a BytesIO buffer
+    pdf_buffer = io.BytesIO()
+    pdf.output(pdf_buffer) # Write PDF data to the buffer
+    pdf_bytes = pdf_buffer.getvalue() # Get the raw bytes from the buffer
+
+    # 7. Create Flask Response for Download
+    response = make_response(pdf_bytes) # pdf_bytes is definitely bytes
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=meeting_{meeting.id}_{meeting.title.replace(" ", "_")}.pdf'
+
+    return response
 # --- End Routes ---
 
 
