@@ -5,8 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meeting Minutes</title>
 </head>
+
+
+
+<nav>
+    <a href="{{ url_for('index') }}">Home</a> |
+    {% if current_user.is_authenticated %}
+        <span>Welcome, {{ current_user.username }}!</span> |
+        <a href="{{ url_for('logout') }}">Logout</a> |
+        <a href="#">My Meetings</a> {% else %}
+        <a href="{{ url_for('login') }}">Login</a> |
+        <a href="{{ url_for('register') }}">Register</a>
+    {% endif %}
+</nav>
+<hr> <h1>Welcome to the Meeting Minutes App!</h1>
+
 <body>
-    <h1>Welcome to the Meeting Minutes App!</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert.{{ category }}"> <!-- Potential Issue Here -->
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <p>This application helps you record and manage your meeting notes.</p>
+    <p>New user? <a href="{{ url_for('register') }}">Register here</a></p>
     </body>
 </html>
