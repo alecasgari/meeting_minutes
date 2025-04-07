@@ -34,14 +34,16 @@
     <p><a href="{{ url_for('new_meeting') }}">Record a New Meeting</a></p>
 
     {% for meeting in meetings %}
-        <article>
-            <h3>
-                <a href="#">{{ meeting.title }}</a> </h3>
-            <p>
-                Meeting Date: {{ meeting.meeting_date.strftime('%Y-%m-%d') }} <br>
-                Date Recorded: {{ meeting.date_posted.strftime('%Y-%m-%d %H:%M') }} <br>
-                </p>
-            <hr> </article>
+    <article>
+        <h3>
+            <a href="{{ url_for('meeting_detail', meeting_id=meeting.id) }}">{{ meeting.title }}</a>
+        </h3>
+        <p>
+            Meeting Date: {{ meeting.meeting_date.strftime('%Y-%m-%d') }} <br>
+            Date Recorded: {{ meeting.date_posted.strftime('%Y-%m-%d %H:%M') }} <br>
+        </p>
+        <hr>
+    </article>
     {% else %}
         <p>You haven't recorded any meetings yet.</p>
     {% endfor %}

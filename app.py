@@ -15,6 +15,7 @@ from wtforms import StringField, PasswordField, BooleanField, SubmitField
 from wtforms.validators import DataRequired
 from wtforms.fields import DateField # Correct import for WTForms 3+
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField # Add TextAreaField
+from flask import abort # Import abort at the top
 
 # Create a Flask application instance
 app = Flask(__name__)
@@ -229,6 +230,24 @@ def meetings_list():
     return render_template('meetings.html', title='My Meetings', meetings=meetings)
 
 
+
+
+
+@app.route("/meeting/<int:meeting_id>") # Route accepts an integer in the URL
+@login_required
+def meeting_detail(meeting_id):
+    # Query the database for the meeting with the given ID
+    # get_or_404: Get the meeting or return a 404 Not Found error if ID doesn't exist
+    meeting = Meeting.query.get_or_404(meeting_id)
+
+    # --- Authorization Check (Optional but Recommended) ---
+    # Make sure the logged-in user is the author of the meeting
+    if meeting.author != current_user:
+        abort(403) # Forbidden access - Return a 403 error page
+    # --- End Authorization Check ---
+
+    # Render a template, passing the specific meeting object to it
+    return render_template('meeting_detail.html', title=meeting.title, meeting=meeting)
 # --- End Routes ---
 
 

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Meeting Minutes</title> </head>
+<body>
+    <nav>
+        <a href="{{ url_for('index') }}">Home</a> |
+        {% if current_user.is_authenticated %}
+            <span>Welcome, {{ current_user.username }}!</span> |
+            <a href="{{ url_for('new_meeting') }}">New Meeting</a> |
+            <a href="{{ url_for('meetings_list') }}">My Meetings</a> |
+            <a href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+            <a href="{{ url_for('login') }}">Login</a> |
+            <a href="{{ url_for('register') }}">Register</a>
+        {% endif %}
+    </nav>
+    <hr>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <article>
+        <h2>{{ meeting.title }}</h2>
+        <p>
+            <strong>Meeting Date:</strong> {{ meeting.meeting_date.strftime('%Y-%m-%d') }} <br>
+            <strong>Recorded By:</strong> {{ meeting.author.username }} <br>
+            <strong>Date Recorded:</strong> {{ meeting.date_posted.strftime('%Y-%m-%d %H:%M') }}
+        </p>
+
+        {% if meeting.attendees %}
+        <section>
+            <h3>Attendees</h3>
+            <pre>{{ meeting.attendees }}</pre> </section>
+        {% endif %}
+
+        <section>
+            <h3>Agenda</h3>
+            <pre>{{ meeting.agenda }}</pre>
+        </section>
+
+        {% if meeting.minutes %}
+        <section>
+            <h3>Minutes</h3>
+            <pre>{{ meeting.minutes }}</pre>
+        </section>
+        {% endif %}
+
+         {% if meeting.action_items %}
+        <section>
+            <h3>Action Items</h3>
+            <pre>{{ meeting.action_items }}</pre>
+        </section>
+        {% endif %}
+
+    </article>
+    <hr>
+
+    <p>
+        <a href="#">Generate PDF</a> | <a href="#">Edit Meeting</a> |
+        <a href="#">Delete Meeting</a> |
+        <a href="{{ url_for('meetings_list') }}">Back to My Meetings</a>
+    </p>
+
+</body>
+</html>
