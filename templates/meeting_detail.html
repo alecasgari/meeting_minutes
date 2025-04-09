@@ -11,24 +11,46 @@
             <strong>Date Recorded:</strong> {{ meeting.date_posted.strftime('%Y-%m-%d %H:%M') }}
         </p>
 
-        {% if meeting.attendees %}
-        <section>
-            <h3>Attendees</h3>
-            <pre>{{ meeting.attendees }}</pre> </section>
-        {% endif %}
+      
 
-        <section>
+
+
+
+        {# --- Attendees Section --- #}
+        {% if meeting.attendees %} {# Check if meeting object has attendees data saved #}
+            <section>
+                <h3>Attendees</h3>
+                {% if attendees_list %} {# Check if the parsed list has items #}
+                    <ul>
+                        {% for person in attendees_list %}
+                            <li>{{ person }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>N/A</p> {# Parsed list was empty #}
+                {% endif %} {# Closes 'if attendees_list' #}
+            </section>
+        {% endif %} {# <--- ADDED: Closes 'if meeting.attendees' #}
+  
+  
+        {# --- Agenda Section --- #}
+        <section> {# Ensure Agenda also has a section tag #}
             <h3>Agenda</h3>
             {% if agenda_list %}
-                <ul> 
+                <ul>
                     {% for item in agenda_list %}
-                        <li>{{ item }}</li> 
+                        <li>{{ item }}</li>
                     {% endfor %}
                 </ul>
             {% else %}
                 <p>N/A</p>
-            {% endif %}
+            {% endif %} {# Closes 'if agenda_list' #}
         </section>
+        {# --- End Agenda Section --- #}
+  
+        {# --- Keep other sections like Minutes, Action Items below --- #}
+
+
 
         {% if meeting.minutes %}
         <section>

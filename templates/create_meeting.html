@@ -21,15 +21,37 @@
                     {% endfor %}
                 {% endif %}
             </div>
-             <div>
-                {{ form.attendees.label }}<br>
-                {{ form.attendees(rows=3, cols=30) }}<br>
-                {% if form.attendees.errors %}
-                    {% for error in form.attendees.errors %}
-                        <span style="color: red;">[{{ error }}]</span>
+             
+            
+
+            {# --- Start: New Block for Attendees (FieldList) --- #}
+            <div>
+                {{ form.attendees.label(class="form-label") }}<br>
+                <div id="attendees-container">
+                    {# This loop will be empty on initial load because min_entries=0 #}
+                    {# It will correctly render pre-populated fields during edit #}
+                    {% for attendee_field in form.attendees %}
+                        <div class="attendee-item" style="margin-bottom: 5px;">
+                            {{ attendee_field(size=50, class="form-control") }}
+                            <button type="button" class="remove-attendee-item" style="margin-left: 5px;">-</button>
+                            {% if attendee_field.errors %}
+                                <div style="color: red;">
+                                {% for error in attendee_field.errors %}
+                                    <span>[{{ error }}]</span><br>
+                                {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
                     {% endfor %}
-                {% endif %}
+                </div>
+                <button type="button" id="add-attendee-button" style="margin-top: 5px;">+ Add Attendee</button>
             </div>
+            {# --- End: New Block for Attendees --- #}
+
+            {# Keep the Agenda Items block and other fields below #}
+
+
+
             <div>
                 {# Display the main label for the list #}
                 {{ form.agenda_items.label(class="form-label") }}<br>

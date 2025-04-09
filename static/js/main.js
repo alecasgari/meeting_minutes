@@ -38,4 +38,49 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+
+  // --- Dynamic Attendees --- (ADD THIS ENTIRE NEW BLOCK)
+  const addAttendeeButton = document.getElementById('add-attendee-button');
+  const attendeesContainer = document.getElementById('attendees-container');
+
+  if (addAttendeeButton && attendeesContainer) {
+
+      addAttendeeButton.addEventListener('click', function() {
+          const currentItemCount = attendeesContainer.children.length;
+          const newItemDiv = document.createElement('div');
+          newItemDiv.classList.add('attendee-item'); // Use attendee class
+          newItemDiv.style.marginBottom = '5px';
+
+          const newInput = document.createElement('input');
+          newInput.type = 'text';
+          newInput.name = `attendees-${currentItemCount}`; // Indexed name 'attendees-X'
+          newInput.id = `attendees-${currentItemCount}`;   // Indexed id 'attendees-X'
+          // newInput.required = true; // Attendees are likely optional, so no 'required'
+          newInput.size = 50;
+          newInput.classList.add('form-control');
+
+          const removeButton = document.createElement('button');
+          removeButton.type = 'button';
+          removeButton.textContent = '-';
+          removeButton.classList.add('remove-attendee-item'); // Use specific class
+          removeButton.style.marginLeft = '5px';
+
+          newItemDiv.appendChild(newInput);
+          newItemDiv.appendChild(removeButton);
+          attendeesContainer.appendChild(newItemDiv);
+      });
+
+      // Remove Attendee Logic (Event Delegation)
+      attendeesContainer.addEventListener('click', function(event) {
+          if (event.target.classList.contains('remove-attendee-item')) { // Check specific class
+              const itemToRemove = event.target.closest('.attendee-item'); // Find attendee parent
+              if (itemToRemove) {
+                  itemToRemove.remove();
+              }
+          }
+      });
+  }
+  // --- End Dynamic Attendees Block ---
+
 });
