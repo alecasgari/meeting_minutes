@@ -1,21 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} - Meeting Minutes</title>
-</head>
-<body>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert-{{ category }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+{% extends 'base.html' %}
 
+{% block title %}Home{% endblock %}
+
+{% block content %}
     <h2>{{ legend }}</h2> <form method="POST" action="">
         {{ form.hidden_tag() }} <fieldset> <div>
                 {{ form.title.label }}<br>
@@ -43,15 +30,37 @@
                     {% endfor %}
                 {% endif %}
             </div>
-             <div>
-                {{ form.agenda.label }}<br>
-                {{ form.agenda(rows=5, cols=30) }}<br>
-                {% if form.agenda.errors %}
-                    {% for error in form.agenda.errors %}
-                        <span style="color: red;">[{{ error }}]</span>
+            <div>
+                {# Display the main label for the list #}
+                {{ form.agenda_items.label(class="form-label") }}<br>
+
+                {# Container for individual item inputs #}
+                <div id="agenda-items-container">
+                    {# Loop through the fields within the FieldList #}
+                    {% for item_field in form.agenda_items %}
+                        <div class="agenda-item" style="margin-bottom: 5px;">
+                            {# Render the actual input field for each item #}
+                            {{ item_field(size=50, class="form-control") }}
+                            {# Add a remove button placeholder - JS will handle it #}
+                            <button type="button" class="remove-agenda-item" style="margin-left: 5px;">-</button>
+                            {# Display errors for this specific item field #}
+                            {% if item_field.errors %}
+                                <div style="color: red;">
+                                {% for error in item_field.errors %}
+                                    <span>[{{ error }}]</span><br>
+                                {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
                     {% endfor %}
-                {% endif %}
+                </div>
+
+                {# Button to add more items - JS will handle it #}
+                <button type="button" id="add-agenda-item" style="margin-top: 5px;">+ Add Agenda Item</button>
             </div>
+            {# --- End: New Block for Agenda Items --- #}
+
+            {# Keep the rendering for minutes, action_items, etc. as they were #}
              <div>
                 {{ form.minutes.label }}<br>
                 {{ form.minutes(rows=10, cols=30) }}<br>
@@ -76,5 +85,5 @@
         </div>
     </form>
     <p><a href="{{ url_for('index') }}">Back to Home</a></p>
-</body>
-</html>
+
+{% endblock %}

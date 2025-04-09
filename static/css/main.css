@@ -1,0 +1,135 @@
+/* static/css/main.css */
+
+body {
+    font-family: sans-serif; /* Use a common sans-serif font */
+    margin: 20px; /* Add some space around the content */
+    line-height: 1.6; /* Improve readability */
+    background-color: #f8f9fa; /* Light grey background */
+    color: #333; /* Darker text color */
+}
+
+header nav {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ccc; /* Separator line */
+}
+
+header nav a {
+    text-decoration: none;
+    color: #007bff; /* Blue links */
+    margin-right: 10px;
+}
+
+header nav a:hover {
+    text-decoration: underline;
+}
+
+header nav span {
+    margin-right: 10px;
+    color: #555;
+}
+
+main {
+    background-color: #ffffff; /* White background for main content */
+    padding: 20px;
+    border-radius: 5px; /* Slightly rounded corners */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Subtle shadow */
+}
+
+h1, h2, h3 {
+    color: #444;
+}
+
+/* Basic Form Styling */
+form div {
+    margin-bottom: 15px; /* Space between form fields */
+}
+
+form label {
+    display: block; /* Make labels appear on their own line */
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+/* Style input fields and textareas */
+input[type="text"],
+input[type="password"],
+input[type="date"],
+textarea {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 95%; /* Make them take most of the width */
+    max-width: 400px; /* But not too wide */
+}
+
+textarea {
+    min-height: 80px; /* Give textareas some initial height */
+}
+
+/* Submit button */
+input[type="submit"] {
+    background-color: #28a745; /* Green */
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+input[type="submit"]:hover {
+    background-color: #218838; /* Darker green on hover */
+}
+
+/* Flash Message Styling */
+.alert {
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+
+.alert-success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.alert-info {
+    color: #0c5460;
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+}
+
+/* Meeting List Styling */
+.meeting-list article {
+    border: 1px solid #eee;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #fdfdfd;
+    border-radius: 4px;
+}
+
+/* Meeting Detail Styling */
+.meeting-detail section {
+    margin-bottom: 15px;
+}
+.meeting-detail pre {
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 4px;
+    white-space: pre-wrap; /* Allow long lines to wrap */
+    word-wrap: break-word;
+}
+
+footer {
+    margin-top: 30px;
+    text-align: center;
+    color: #777;
+}

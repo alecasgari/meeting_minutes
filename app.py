@@ -1,25 +1,47 @@
-import os # Import the os module
-import datetime # Import datetime for date/time operations
-from flask import Flask, render_template, redirect, url_for, flash # Add redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy # Import SQLAlchemy
-from flask_bcrypt import Bcrypt        # Import Bcrypt
-# --- WTForms Imports ---
-from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField
-from wtforms.validators import DataRequired, Length, EqualTo, ValidationError
-# --- End WTForms Imports ---
-from flask_login import LoginManager, login_user, current_user, logout_user, login_required, UserMixin # Add these
-from flask import request # Needed for 'next' parameter in login
-from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField
-from wtforms.validators import DataRequired
-from wtforms.fields import DateField # Correct import for WTForms 3+
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField # Add TextAreaField
-from flask import abort # Import abort at the top
-from fpdf import FPDF
-from flask import make_response
+# =========================================
+#          IMPORTS SECTION
+# =========================================
+
+# --- Standard Python Libraries ---
+import os
 import io
+import json
+import datetime
+
+# --- Flask Core Libraries ---
+from flask import (Flask, render_template, redirect, url_for,
+                   flash, request, abort, make_response)
+
+# --- Flask Extensions ---
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_login import (LoginManager, login_user, current_user,
+                         logout_user, login_required, UserMixin)
+from flask_wtf import FlaskForm
+
+# --- WTForms Libraries ---
+# Import Fields from wtforms.fields (DateField is now here in WTForms 3+)
+from wtforms.fields import (StringField, PasswordField, BooleanField,
+                            SubmitField, TextAreaField, FieldList, DateField)
+# Import Validators from wtforms.validators
+from wtforms.validators import (DataRequired, Length, EqualTo, ValidationError)
+
+# --- Other Third-Party Libraries ---
+from fpdf import FPDF
 from fpdf.enums import XPos, YPos
+
+# =========================================
+#          END IMPORTS SECTION
+# =========================================
+
+
+# --- Flask App Initialization and Configuration ---
+# Example: app = Flask(__name__)
+#          app.config[...] = ...
+#          db = SQLAlchemy(app)
+#          bcrypt = Bcrypt(app)
+#          login_manager = LoginManager(app)
+#          ... etc ...
 # Create a Flask application instance
 app = Flask(__name__)
 
@@ -172,15 +194,11 @@ def login():
 
 
 
-# ... (RegistrationForm, LoginForm) ...
-
 class MeetingForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired()])
-    # Using DateField for browser's native date picker
     meeting_date = DateField('Meeting Date', format='%Y-%m-%d', validators=[DataRequired()])
-    # Using TextAreaField for potentially multi-line text
     attendees = TextAreaField('Attendees')
-    agenda = TextAreaField('Agenda', validators=[DataRequired()])
+    agenda_items = FieldList(StringField('Agenda Item', validators=[DataRequired()]), min_entries=0, label='Agenda Items')
     minutes = TextAreaField('Minutes')
     action_items = TextAreaField('Action Items')
     submit = SubmitField('Save Meeting')
@@ -195,38 +213,49 @@ def logout():
 
 
 
-# --- Routes ---
-# ... (index, register, login, logout routes) ...
+
+# Make sure these imports are included at the top of app.py
+# import json
+# from flask import request, redirect, url_for, flash, render_template
+# from .models import Meeting, db # Adjust import based on your structure
+# from .forms import MeetingForm # Adjust import based on your structure
+# from flask_login import current_user, login_required
 
 @app.route("/meeting/new", methods=['GET', 'POST'])
-@login_required # Only logged-in users can create meetings
+@login_required
 def new_meeting():
     form = MeetingForm()
+    # This block executes only on POST requests with valid data
     if form.validate_on_submit():
-        # Create a new Meeting object using form data
-        # Note: We set the 'author' using the backref, SQLAlchemy handles user_id
+        agenda_list_from_request = request.form.getlist('agenda_items')
+        agenda_list_filtered = [item for item in agenda_list_from_request if item.strip()]
+        print(f"DEBUG: Filtered agenda list from request: {agenda_list_filtered}")
+        print(f"DEBUG: Raw data from Flask request.form: {request.form.getlist('agenda_items')}")
+        print(f"DEBUG: Raw entries in form.agenda_items: {form.agenda_items.entries}")
+        print(f"DEBUG: Processed form.agenda_items.data: {form.agenda_items.data}")
+        agenda_json_string = json.dumps(agenda_list_filtered)
+        print(f"DEBUG: JSON string being saved: {agenda_json_string}")
+
+        # --- Create and Save Meeting Object ---
         meeting = Meeting(title=form.title.data,
                           meeting_date=form.meeting_date.data,
                           attendees=form.attendees.data,
-                          agenda=form.agenda.data,
+                          agenda=agenda_json_string, # Use the JSON string
                           minutes=form.minutes.data,
                           action_items=form.action_items.data,
-                          author=current_user) # Associate with the logged-in user
+                          author=current_user)
         db.session.add(meeting)
         db.session.commit()
         flash('Your meeting has been created!', 'success')
-        # Redirect to homepage for now, later maybe to a meetings list page
-        return redirect(url_for('index'))
-    # If GET request, render the form
+        return redirect(url_for('meetings_list'))
+
+    # --- Render Template for GET requests or Invalid POST ---
+    # This line runs if it's a GET request OR if form.validate_on_submit() was False
     return render_template('create_meeting.html', title='New Meeting', form=form, legend='New Meeting')
 
-
-
 @app.route("/meetings")
-@login_required # <--- این دکوراتور رو دوباره فعال کن!
+@login_required 
 def meetings_list():
-    # Query the database for all meetings authored by the current user
-    # Order them by date posted in descending order (newest first)
     meetings = Meeting.query.filter_by(author=current_user)\
                             .order_by(Meeting.date_posted.desc()).all()
     # Render the template, passing the list of meetings to it
@@ -236,84 +265,108 @@ def meetings_list():
 
 
 
-@app.route("/meeting/<int:meeting_id>") # Route accepts an integer in the URL
+@app.route("/meeting/<int:meeting_id>")
 @login_required
 def meeting_detail(meeting_id):
-    # Query the database for the meeting with the given ID
-    # get_or_404: Get the meeting or return a 404 Not Found error if ID doesn't exist
     meeting = Meeting.query.get_or_404(meeting_id)
-
-    # --- Authorization Check (Optional but Recommended) ---
-    # Make sure the logged-in user is the author of the meeting
     if meeting.author != current_user:
-        abort(403) # Forbidden access - Return a 403 error page
-    # --- End Authorization Check ---
+        abort(403)  
+    try:
+        agenda_list = json.loads(meeting.agenda)
+        if not isinstance(agenda_list, list):
+            agenda_list = [] # Default to empty list if not a list
+    except (json.JSONDecodeError, TypeError):
+        agenda_list = [] # Default to an empty list
+    return render_template('meeting_detail.html', title=meeting.title, meeting=meeting, agenda_list=agenda_list) # Pass agenda_list
 
-    # Render a template, passing the specific meeting object to it
-    return render_template('meeting_detail.html', title=meeting.title, meeting=meeting)
 
 
+
+
+# Ensure these imports are at the top:
+# import io, json
+# from fpdf import FPDF
+# from fpdf.enums import XPos, YPos
+# from flask import make_response, abort, current_app
+# from flask_login import login_required, current_user
+# from .models import Meeting # Adjust import based on your structure
 
 @app.route("/meeting/<int:meeting_id>/pdf")
 @login_required
 def generate_meeting_pdf(meeting_id):
-    # 1. Get Meeting Data (or 404)
     meeting = Meeting.query.get_or_404(meeting_id)
 
-    # 2. Authorization Check
     if meeting.author != current_user:
         abort(403)
 
-    # 3. Create PDF object
     pdf = FPDF()
     pdf.add_page()
-
-    # 4. Set Font (Using Arial, will fallback to Helvetica)
-    # Note: Font warnings might still appear if Arial isn't truly available/embedded
     pdf.set_font('Arial', '', 12)
 
-    # 5. Add Content to PDF
-    # --- Title ---
+    # --- Nested Helper Function ---
+    def add_section(title, content):
+        effective_width = pdf.w - pdf.l_margin - pdf.r_margin
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('Arial', '', 12)
+        if isinstance(content, list):
+            if content:
+                for item in content:
+                    pdf.set_x(pdf.l_margin)
+                    pdf.multi_cell(effective_width, 5, f"- {item}")
+                pdf.ln(2) # Add a bit of space after list items
+            else:
+                 pdf.multi_cell(effective_width, 5, "N/A")
+        else: # Handle simple strings (or None)
+            pdf.multi_cell(effective_width, 5, content if content else "N/A")
+        pdf.ln(5) # Space after section
+    # --- End Nested Helper Function ---
+
+    # --- Add PDF Content ---
     pdf.set_font('Arial', 'B', 16)
-    # Use new_x and new_y instead of ln=True
     pdf.cell(0, 10, f'Meeting Minutes: {meeting.title}', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
-    pdf.ln(10) # Keep pdf.ln() for adding vertical space explicitly
+    pdf.ln(10)
 
-    # --- Basic Info ---
     pdf.set_font('Arial', '', 12)
-    # Use new_x and new_y instead of ln=True
     pdf.cell(0, 7, f'Date: {meeting.meeting_date.strftime("%Y-%m-%d")}', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.cell(0, 7, f'Recorded By: {meeting.author.username}', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(5)
 
-    # --- Sections (using multi_cell for wrapping text) ---
-    # Helper function to add sections consistently
-    def add_section(title, content):
-        pdf.set_font('Arial', 'B', 14)
-        # Use new_x and new_y instead of ln=True for the section title cell
-        pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        pdf.set_font('Arial', '', 12)
-        # multi_cell handles line breaks internally, no ln=True needed here
-        pdf.multi_cell(0, 5, content if content else "N/A")
-        pdf.ln(5) # Add space after the multi_cell content
+    # --- Parse Agenda JSON ---
+    try:
+        agenda_items_list = json.loads(meeting.agenda)
+        if not isinstance(agenda_items_list, list): agenda_items_list = []
+    except (json.JSONDecodeError, TypeError):
+        agenda_items_list = []
+    # --- End Parse ---
 
-    # Add the actual sections using the helper function
+    # --- Call Helper for Sections ---
     add_section('Attendees', meeting.attendees)
-    add_section('Agenda', meeting.agenda)
+    add_section('Agenda', agenda_items_list) # Pass the parsed list
     add_section('Minutes', meeting.minutes)
     add_section('Action Items', meeting.action_items)
+    # --- End Call ---
 
-    # 6. Generate PDF output into a BytesIO buffer
+    # --- Generate PDF Bytes ---
     pdf_buffer = io.BytesIO()
-    pdf.output(pdf_buffer) # Write PDF data to the buffer
-    pdf_bytes = pdf_buffer.getvalue() # Get the raw bytes from the buffer
+    pdf.output(pdf_buffer)
+    pdf_bytes = pdf_buffer.getvalue()
 
-    # 7. Create Flask Response for Download
-    response = make_response(pdf_bytes) # pdf_bytes is definitely bytes
+    # --- Create and Return Response ---
+    response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = f'attachment; filename=meeting_{meeting.id}_{meeting.title.replace(" ", "_")}.pdf'
 
     return response
+
+
+
+
+
+
+
+
+
 # --- End Routes ---
 
 
