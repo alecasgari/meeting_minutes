@@ -221,26 +221,23 @@ def logout():
 # from .forms import MeetingForm # Adjust import based on your structure
 # from flask_login import current_user, login_required
 
+
+
+
+
 @app.route("/meeting/new", methods=['GET', 'POST'])
 @login_required
 def new_meeting():
     form = MeetingForm()
-    # This block executes only on POST requests with valid data
     if form.validate_on_submit():
-        agenda_list_from_request = request.form.getlist('agenda_items')
-        agenda_list_filtered = [item for item in agenda_list_from_request if item.strip()]
-        print(f"DEBUG: Filtered agenda list from request: {agenda_list_filtered}")
-        print(f"DEBUG: Raw data from Flask request.form: {request.form.getlist('agenda_items')}")
-        print(f"DEBUG: Raw entries in form.agenda_items: {form.agenda_items.entries}")
-        print(f"DEBUG: Processed form.agenda_items.data: {form.agenda_items.data}")
+        agenda_list_from_form = form.agenda_items.data
+        agenda_list_filtered = [item for item in agenda_list_from_form if isinstance(item, str) and item.strip()]
         agenda_json_string = json.dumps(agenda_list_filtered)
-        print(f"DEBUG: JSON string being saved: {agenda_json_string}")
 
-        # --- Create and Save Meeting Object ---
         meeting = Meeting(title=form.title.data,
                           meeting_date=form.meeting_date.data,
                           attendees=form.attendees.data,
-                          agenda=agenda_json_string, # Use the JSON string
+                          agenda=agenda_json_string,
                           minutes=form.minutes.data,
                           action_items=form.action_items.data,
                           author=current_user)
@@ -249,9 +246,11 @@ def new_meeting():
         flash('Your meeting has been created!', 'success')
         return redirect(url_for('meetings_list'))
 
-    # --- Render Template for GET requests or Invalid POST ---
-    # This line runs if it's a GET request OR if form.validate_on_submit() was False
     return render_template('create_meeting.html', title='New Meeting', form=form, legend='New Meeting')
+
+
+
+
 
 @app.route("/meetings")
 @login_required 
@@ -364,6 +363,76 @@ def generate_meeting_pdf(meeting_id):
 
 
 
+
+
+
+@app.route("/meeting/<int:meeting_id>/edit", methods=['GET', 'POST'])
+@login_required
+def edit_meeting(meeting_id):
+    meeting = Meeting.query.get_or_404(meeting_id)
+    if meeting.author != current_user:
+        abort(403)
+
+    form = MeetingForm() # Instantiate form initially
+
+    if form.validate_on_submit(): # Handle POST request
+        agenda_list_from_form = form.agenda_items.data
+        agenda_list_filtered = [item for item in agenda_list_from_form if isinstance(item, str) and item.strip()]
+        agenda_json_string = json.dumps(agenda_list_filtered)
+
+        meeting.title = form.title.data
+        meeting.meeting_date = form.meeting_date.data
+        meeting.attendees = form.attendees.data
+        meeting.agenda = agenda_json_string
+        meeting.minutes = form.minutes.data
+        meeting.action_items = form.action_items.data
+
+        db.session.commit()
+        flash('Your meeting has been updated!', 'success')
+        return redirect(url_for('meeting_detail', meeting_id=meeting.id))
+
+    elif request.method == 'GET': # Handle GET request (pre-populate form)
+        try:
+            agenda_list = json.loads(meeting.agenda or '[]')
+            if not isinstance(agenda_list, list): agenda_list = []
+        except (json.JSONDecodeError, TypeError):
+            agenda_list = []
+
+        form_data = {
+            'title': meeting.title,
+            'meeting_date': meeting.meeting_date,
+            'attendees': meeting.attendees,
+            'agenda_items': agenda_list,
+            'minutes': meeting.minutes,
+            'action_items': meeting.action_items
+        }
+        # Re-instantiate form with data for GET request
+        form = MeetingForm(data=form_data)
+
+    # Render template for GET or invalid POST
+    return render_template('create_meeting.html', title='Edit Meeting', form=form, legend='Edit Meeting')
+
+
+
+
+# Ensure imports: redirect, url_for, flash, abort, db, Meeting, login_required, current_user
+
+@app.route("/meeting/<int:meeting_id>/delete", methods=['POST']) # Only accept POST requests
+@login_required
+def delete_meeting(meeting_id):
+    meeting = Meeting.query.get_or_404(meeting_id)
+    # Authorization: Only the author can delete
+    if meeting.author != current_user:
+        abort(403)
+
+    # Delete the meeting object from the database session
+    db.session.delete(meeting)
+    # Commit the change to permanently remove it
+    db.session.commit()
+
+    flash('Your meeting has been deleted!', 'success')
+    # Redirect to the meetings list page after deletion
+    return redirect(url_for('meetings_list'))
 
 
 
