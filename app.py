@@ -19,12 +19,14 @@ from flask_login import (LoginManager, login_user, current_user,
                          logout_user, login_required, UserMixin)
 from flask_wtf import FlaskForm
 
-# --- WTForms Libraries ---
-# Import Fields from wtforms.fields (DateField is now here in WTForms 3+)
-from wtforms.fields import (StringField, PasswordField, BooleanField,
-                            SubmitField, TextAreaField, FieldList, DateField)
-# Import Validators from wtforms.validators
-from wtforms.validators import (DataRequired, Length, EqualTo, ValidationError)
+# --- WTForms ---
+from wtforms import (Form, StringField, PasswordField, BooleanField,  # Added Form
+                     SubmitField, TextAreaField, FieldList, FormField) # Added FormField
+from wtforms.fields import DateField # DateField is here
+from wtforms.validators import (DataRequired, Length, EqualTo,        # For MeetingForm & ActionItemForm validators
+                            ValidationError, Optional)            # Added Optional for ActionItemForm
+
+# --- End WTForms Imports ---
 
 # --- Other Third-Party Libraries ---
 from fpdf import FPDF
@@ -197,19 +199,36 @@ def login():
 
 
 
+class ActionItemForm(Form): # Inherit from wtforms.Form
+    # Using TextAreaField for potentially longer descriptions
+    description = TextAreaField('Description') # Maybe add validators=[DataRequired()] if needed? Let's make it optional for now.
+    # Simple StringField for assignee name (text input)
+    assigned_to = StringField('Assigned To') # Optional for now
+    # DateField for deadline, also optional
+    deadline = DateField('Deadline', format='%Y-%m-%d', validators=[Optional()])
+
+
+
 class MeetingForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired()])
     meeting_date = DateField('Meeting Date', format='%Y-%m-%d', validators=[DataRequired()])
-
-    # Changed attendees to FieldList
     attendees = FieldList(StringField('Attendee'), min_entries=0, label='Attendees')
-
-    # Keep agenda_items as FieldList
     agenda_items = FieldList(StringField('Agenda Item', validators=[DataRequired()]), min_entries=0, label='Agenda Items')
-
     minutes = TextAreaField('Minutes')
-    action_items = TextAreaField('Action Items')
+
+    # --- Changed Action Items Field ---
+    action_items = FieldList(
+        FormField(ActionItemForm), # Embed ActionItemForm using FormField
+        min_entries=0,
+        label='Action Items'
+    )
+    # --- End Change ---
+
     submit = SubmitField('Save Meeting')
+
+
+
+
 
 # ... (Routes definition) ...
 
@@ -221,38 +240,42 @@ def logout():
 
 
 
-# Ensure necessary imports: json, Meeting, db, MeetingForm, flash, redirect, url_for, login_required, current_user
+# Ensure imports: json, datetime, Meeting, db, MeetingForm, flash, redirect, url_for, login_required, current_user
 @app.route("/meeting/new", methods=['GET', 'POST'])
 @login_required
 def new_meeting():
     form = MeetingForm()
     if form.validate_on_submit():
-        # Handle Agenda Items
         agenda_list_from_form = form.agenda_items.data
         agenda_list_filtered = [item for item in agenda_list_from_form if isinstance(item, str) and item.strip()]
         agenda_json_string = json.dumps(agenda_list_filtered)
 
-        # Handle Attendees (New Block)
         attendees_list_from_form = form.attendees.data
         attendees_list_filtered = [item for item in attendees_list_from_form if isinstance(item, str) and item.strip()]
         attendees_json_string = json.dumps(attendees_list_filtered)
-        # End Attendees Handling
 
-        # Create Meeting Object (Now includes attendees JSON)
+        action_items_data = form.action_items.data
+        serializable_action_items = []
+        for item in action_items_data:
+            if isinstance(item.get('deadline'), datetime.date):
+                item['deadline'] = item['deadline'].isoformat()
+            serializable_action_items.append(item)
+        action_items_json_string = json.dumps(serializable_action_items)
+
         meeting = Meeting(title=form.title.data,
                           meeting_date=form.meeting_date.data,
-                          attendees=attendees_json_string, # Save JSON
-                          agenda=agenda_json_string,       # Save JSON
+                          attendees=attendees_json_string,
+                          agenda=agenda_json_string,
                           minutes=form.minutes.data,
-                          action_items=form.action_items.data,
+                          action_items=action_items_json_string,
                           author=current_user)
         db.session.add(meeting)
         db.session.commit()
         flash('Your meeting has been created!', 'success')
         return redirect(url_for('meetings_list'))
 
-    # Handle GET request
     return render_template('create_meeting.html', title='New Meeting', form=form, legend='New Meeting')
+
 
 
 
@@ -278,25 +301,35 @@ def meeting_detail(meeting_id):
     if meeting.author != current_user:
         abort(403)
 
-    # --- Parse Agenda JSON ---
+    # Parse Agenda JSON (Existing)
     try:
-        agenda_list = json.loads(meeting.agenda or '[]') # Use default '[]'
+        agenda_list = json.loads(meeting.agenda or '[]')
         if not isinstance(agenda_list, list): agenda_list = []
     except (json.JSONDecodeError, TypeError):
         agenda_list = []
 
-    # --- Parse Attendees JSON --- (Block Added)
+    # Parse Attendees JSON (Existing)
     try:
-        attendees_list = json.loads(meeting.attendees or '[]') # Use default '[]'
+        attendees_list = json.loads(meeting.attendees or '[]')
         if not isinstance(attendees_list, list): attendees_list = []
     except (json.JSONDecodeError, TypeError):
         attendees_list = []
-    # --- End Parse Attendees ---
 
-    # Pass BOTH lists to the template (Updated)
+    # Parse Action Items JSON (NEW BLOCK)
+    # Expecting a list of dictionaries: [{'description':'...', 'assigned_to':'...', 'deadline':'...'}, ...]
+    try:
+        action_items_list = json.loads(meeting.action_items or '[]')
+        if not isinstance(action_items_list, list): action_items_list = []
+        # Note: deadline is stored as 'YYYY-MM-DD' string from DateField
+    except (json.JSONDecodeError, TypeError):
+        action_items_list = []
+    # End Parse Action Items
+
+    # Pass ALL lists to the template (UPDATED)
     return render_template('meeting_detail.html', title=meeting.title, meeting=meeting,
-                           agenda_list=agenda_list, attendees_list=attendees_list)
-
+                           agenda_list=agenda_list,
+                           attendees_list=attendees_list,
+                           action_items_list=action_items_list) # Pass action_items_list
 
 
 
@@ -312,64 +345,77 @@ def generate_meeting_pdf(meeting_id):
     pdf.add_page()
     pdf.set_font('Arial', '', 12)
 
-    # --- Nested Helper Function (Handles lists) ---
+    # --- Nested Helper Function (UPDATED to handle list of dicts for Action Items) ---
     def add_section(title, content):
         effective_width = pdf.w - pdf.l_margin - pdf.r_margin
         pdf.set_font('Arial', 'B', 14)
         pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font('Arial', '', 12)
-        if isinstance(content, list):
+
+        if isinstance(content, list): # Handle lists (Agenda, Attendees, Action Items)
             if content:
                 for item in content:
-                    pdf.set_x(pdf.l_margin) # Keep manual X reset
-                    pdf.multi_cell(effective_width, 5, f"- {item}")
-                pdf.ln(2)
+                    pdf.set_x(pdf.l_margin) # Reset X for each item
+                    # Check if the item itself is a dictionary (Action Item)
+                    if isinstance(item, dict):
+                        # Format and print structured Action Item
+                        desc = item.get('description', '') # Use get with default
+                        assignee = item.get('assigned_to', '')
+                        deadline_str = item.get('deadline', '')
+                        # Format display string
+                        display_text = f"- {desc}"
+                        if assignee: display_text += f" [Assigned: {assignee}]"
+                        if deadline_str: display_text += f" (Deadline: {deadline_str})"
+                        pdf.multi_cell(effective_width, 5, display_text)
+                    else:
+                        # Handle simple list item (Agenda/Attendee)
+                        pdf.multi_cell(effective_width, 5, f"- {str(item)}")
+                pdf.ln(2) # Add a bit of space after list items
             else:
-                 pdf.multi_cell(effective_width, 5, "N/A")
-        else:
+                 pdf.multi_cell(effective_width, 5, "N/A") # Empty list
+        else: # Handle simple string content (Minutes)
             pdf.multi_cell(effective_width, 5, content if content else "N/A")
-        pdf.ln(5)
+        pdf.ln(5) # Space after section
     # --- End Nested Helper Function ---
 
-    # --- Add PDF Content ---
+    # --- Add PDF Content (Title, Basic Info - unchanged) ---
     pdf.set_font('Arial', 'B', 16)
     pdf.cell(0, 10, f'Meeting Minutes: {meeting.title}', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
     pdf.ln(10)
-
     pdf.set_font('Arial', '', 12)
     pdf.cell(0, 7, f'Date: {meeting.meeting_date.strftime("%Y-%m-%d")}', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.cell(0, 7, f'Recorded By: {meeting.author.username}', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(5)
 
-    # --- Parse JSON for Lists ---
-    try: # Agenda
-        agenda_items_list = json.loads(meeting.agenda or '[]')
-        if not isinstance(agenda_items_list, list): agenda_items_list = []
-    except (json.JSONDecodeError, TypeError): agenda_items_list = []
+    # --- Parse JSON for ALL Lists ---
+    try: agenda_list = json.loads(meeting.agenda or '[]')
+    except: agenda_list = [] # Simplified error handling
 
-    try: # Attendees (NEW)
-        attendees_list = json.loads(meeting.attendees or '[]')
-        if not isinstance(attendees_list, list): attendees_list = []
-    except (json.JSONDecodeError, TypeError): attendees_list = []
+    try: attendees_list = json.loads(meeting.attendees or '[]')
+    except: attendees_list = [] # Simplified error handling
+
+    try: # Action Items (list of dicts)
+        action_items_list = json.loads(meeting.action_items or '[]')
+        if not isinstance(action_items_list, list): action_items_list = []
+    except (json.JSONDecodeError, TypeError): action_items_list = []
     # --- End Parse JSON ---
 
-    # --- Call Helper for Sections (Updated Attendees call) ---
-    add_section('Attendees', attendees_list) # Pass the list
-    add_section('Agenda', agenda_items_list)  # Pass the list
+    # --- Call Helper for Sections (action_items_list now passed) ---
+    add_section('Attendees', attendees_list)
+    add_section('Agenda', agenda_list)
     add_section('Minutes', meeting.minutes)
-    add_section('Action Items', meeting.action_items)
+    add_section('Action Items', action_items_list) # Pass list of dicts
     # --- End Call ---
 
-    # --- Generate PDF Bytes ---
+    # --- Generate PDF Bytes (unchanged) ---
     pdf_buffer = io.BytesIO()
     pdf.output(pdf_buffer)
     pdf_bytes = pdf_buffer.getvalue()
 
-    # --- Create and Return Response ---
+    # --- Create and Return Response (unchanged) ---
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = f'attachment; filename=meeting_{meeting.id}_{meeting.title.replace(" ", "_")}.pdf'
-
     return response
 
 
@@ -379,8 +425,7 @@ def generate_meeting_pdf(meeting_id):
 
 
 
-
-# Ensure necessary imports: json, Meeting, db, MeetingForm, flash, redirect, url_for, login_required, current_user, request, abort
+# Ensure necessary imports: json, datetime, Meeting, db, MeetingForm, flash, redirect, url_for, login_required, current_user, request, abort, render_template
 @app.route("/meeting/<int:meeting_id>/edit", methods=['GET', 'POST'])
 @login_required
 def edit_meeting(meeting_id):
@@ -388,60 +433,76 @@ def edit_meeting(meeting_id):
     if meeting.author != current_user:
         abort(403)
 
-    form = MeetingForm() # Instantiate form initially
+    form = MeetingForm()
 
     if form.validate_on_submit(): # Handle POST request
-        # Handle Agenda Items
         agenda_list_from_form = form.agenda_items.data
         agenda_list_filtered = [item for item in agenda_list_from_form if isinstance(item, str) and item.strip()]
         agenda_json_string = json.dumps(agenda_list_filtered)
 
-        # Handle Attendees (Added POST logic)
         attendees_list_from_form = form.attendees.data
         attendees_list_filtered = [item for item in attendees_list_from_form if isinstance(item, str) and item.strip()]
         attendees_json_string = json.dumps(attendees_list_filtered)
-        # End Attendees Handling
 
-        # Update Meeting Object (Added attendees field)
+        action_items_data = form.action_items.data
+        serializable_action_items = []
+        for item in action_items_data:
+            if isinstance(item.get('deadline'), datetime.date):
+                item['deadline'] = item['deadline'].isoformat()
+            serializable_action_items.append(item)
+        action_items_json_string = json.dumps(serializable_action_items)
+
         meeting.title = form.title.data
         meeting.meeting_date = form.meeting_date.data
-        meeting.attendees = attendees_json_string # Update JSON
-        meeting.agenda = agenda_json_string       # Update JSON
+        meeting.attendees = attendees_json_string
+        meeting.agenda = agenda_json_string
         meeting.minutes = form.minutes.data
-        meeting.action_items = form.action_items.data
+        meeting.action_items = action_items_json_string
 
         db.session.commit()
         flash('Your meeting has been updated!', 'success')
         return redirect(url_for('meeting_detail', meeting_id=meeting.id))
 
-    elif request.method == 'GET': # Handle GET request (pre-populate form)
-        # Parse Agenda JSON (Existing)
+    elif request.method == 'GET': # Handle GET request
         try:
             agenda_list = json.loads(meeting.agenda or '[]')
             if not isinstance(agenda_list, list): agenda_list = []
-        except (json.JSONDecodeError, TypeError): agenda_list = []
+        except: agenda_list = []
 
-        # Parse Attendees JSON (Added GET logic)
         try:
             attendees_list = json.loads(meeting.attendees or '[]')
             if not isinstance(attendees_list, list): attendees_list = []
-        except (json.JSONDecodeError, TypeError): attendees_list = []
-        # End Parse Attendees
+        except: attendees_list = []
 
-        # Create data dict including both lists (Updated)
-        form_data = {
-            'title': meeting.title,
-            'meeting_date': meeting.meeting_date,
-            'attendees': attendees_list, # Pass the parsed list
-            'agenda_items': agenda_list, # Pass the parsed list
-            'minutes': meeting.minutes,
-            'action_items': meeting.action_items
-        }
-        # Re-instantiate form with data
-        form = MeetingForm(data=form_data)
+        try:
+            action_items_list = json.loads(meeting.action_items or '[]')
+            if not isinstance(action_items_list, list): action_items_list = []
+        except: action_items_list = []
 
-    # Render template for GET or invalid POST
+        # Pre-populate only simple fields on the blank form object
+        form.title.data = meeting.title
+        form.meeting_date.data = meeting.meeting_date
+        form.minutes.data = meeting.minutes
+
+        # --- FINAL CHECK PRINT ---
+        # Print the list just before sending it to the template
+        print(f"FINAL CHECK [EDIT GET] - Passing action_items_list: {action_items_list}")
+        # --- END FINAL CHECK ---
+
+        # Render template, passing the BLANK form AND the data lists
+        return render_template('create_meeting.html', title='Edit Meeting', form=form, legend='Edit Meeting',
+                               attendees_list=attendees_list,
+                               agenda_list=agenda_list,
+                               action_items_list=action_items_list) # Pass the list here
+
+    # This part might be unreachable if GET always renders, but good practice
     return render_template('create_meeting.html', title='Edit Meeting', form=form, legend='Edit Meeting')
+
+
+
+
+
+
 
 
 

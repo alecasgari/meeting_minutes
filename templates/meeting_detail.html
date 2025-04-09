@@ -59,12 +59,42 @@
         </section>
         {% endif %}
 
-         {% if meeting.action_items %}
+
+
+
+
+
+        {# --- Start: Updated Action Items Display Section --- #}
         <section>
             <h3>Action Items</h3>
-            <pre>{{ meeting.action_items }}</pre>
+            {# Check if action_items_list exists and has items #}
+            {% if action_items_list %}
+                <ul> {# Use an unordered list #}
+                    {# Loop through the list of dictionaries passed from the route #}
+                    {% for item in action_items_list %}
+                        <li>
+                            {# Display description (use .get for safety) #}
+                            {{ item.get('description', 'N/A') }}
+
+                            {# Display assignee if present #}
+                            {% if item.get('assigned_to') %}
+                                <span style="font-style: italic; color: #555;">(Assigned: {{ item.get('assigned_to') }})</span>
+                            {% endif %}
+
+                            {# Display deadline if present #}
+                            {% if item.get('deadline') %}
+                                <span style="font-weight: bold; color: #888;">[Deadline: {{ item.get('deadline') }}]</span>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>N/A</p> {# Display N/A if the list is empty #}
+            {% endif %}
         </section>
-        {% endif %}
+        {# --- End: Updated Action Items Display Section --- #}
+
+        {# Keep other sections like PDF/Edit/Delete links below #}
 
     </article>
     <hr>

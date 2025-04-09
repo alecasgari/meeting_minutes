@@ -1,111 +1,118 @@
 {% extends 'base.html' %}
 
-{% block title %}Home{% endblock %}
+{% block title %}{{ legend }}{% endblock %}
 
 {% block content %}
-    <h2>{{ legend }}</h2> <form method="POST" action="">
-        {{ form.hidden_tag() }} <fieldset> <div>
-                {{ form.title.label }}<br>
-                {{ form.title(size=30) }}<br>
-                {% if form.title.errors %}
-                    {% for error in form.title.errors %}
-                        <span style="color: red;">[{{ error }}]</span>
-                    {% endfor %}
-                {% endif %}
-            </div>
-             <div>
-                {{ form.meeting_date.label }}<br>
-                {{ form.meeting_date() }}<br> {% if form.meeting_date.errors %}
-                    {% for error in form.meeting_date.errors %}
-                        <span style="color: red;">[{{ error }}]</span>
-                    {% endfor %}
-                {% endif %}
-            </div>
-             
-            
-
-            {# --- Start: New Block for Attendees (FieldList) --- #}
+    <h2>{{ legend }}</h2>
+    <form method="POST" action="">
+        {{ form.hidden_tag() }} {# CSRF protection #}
+        <fieldset>
+            {# Simple Fields - Rendered normally using WTForms #}
             <div>
+                {{ form.title.label }}<br>
+                {{ form.title(size=30, class="form-control") }}<br>
+                {% if form.title.errors %}{% for e in form.title.errors %}<span style="color:red;">[{{e}}]</span><br>{% endfor %}{% endif %}
+            </div>
+            <div>
+                {{ form.meeting_date.label }}<br>
+                {{ form.meeting_date(class="form-control") }}<br>
+                {% if form.meeting_date.errors %}{% for e in form.meeting_date.errors %}<span style="color:red;">[{{e}}]</span><br>{% endfor %}{% endif %}
+            </div>
+
+            {# Attendees - Manual Render using data list #}
+            <div>
+                {# Get label from form object #}
                 {{ form.attendees.label(class="form-label") }}<br>
                 <div id="attendees-container">
-                    {# This loop will be empty on initial load because min_entries=0 #}
-                    {# It will correctly render pre-populated fields during edit #}
-                    {% for attendee_field in form.attendees %}
+                    {# Loop directly over attendees_list passed from route #}
+                    {% for item_data in attendees_list %}
                         <div class="attendee-item" style="margin-bottom: 5px;">
-                            {{ attendee_field(size=50, class="form-control") }}
+                            <input type="text"
+                                   name="attendees-{{ loop.index0 }}"
+                                   id="attendees-{{ loop.index0 }}"
+                                   value="{{ item_data or '' }}" {# Use item_data directly #}
+                                   size="50" class="form-control">
                             <button type="button" class="remove-attendee-item" style="margin-left: 5px;">-</button>
-                            {% if attendee_field.errors %}
-                                <div style="color: red;">
-                                {% for error in attendee_field.errors %}
-                                    <span>[{{ error }}]</span><br>
-                                {% endfor %}
-                                </div>
-                            {% endif %}
+                            {# Errors would be harder to display here without WTForms field object #}
                         </div>
                     {% endfor %}
                 </div>
                 <button type="button" id="add-attendee-button" style="margin-top: 5px;">+ Add Attendee</button>
             </div>
-            {# --- End: New Block for Attendees --- #}
 
-            {# Keep the Agenda Items block and other fields below #}
-
-
-
+            {# Agenda Items - Manual Render using data list #}
             <div>
-                {# Display the main label for the list #}
+                 {# Get label from form object #}
                 {{ form.agenda_items.label(class="form-label") }}<br>
-
-                {# Container for individual item inputs #}
                 <div id="agenda-items-container">
-                    {# Loop through the fields within the FieldList #}
-                    {% for item_field in form.agenda_items %}
+                    {# Loop directly over agenda_list passed from route #}
+                    {% for item_data in agenda_list %}
                         <div class="agenda-item" style="margin-bottom: 5px;">
-                            {# Render the actual input field for each item #}
-                            {{ item_field(size=50, class="form-control") }}
-                            {# Add a remove button placeholder - JS will handle it #}
+                            <input type="text"
+                                   name="agenda_items-{{ loop.index0 }}"
+                                   id="agenda_items-{{ loop.index0 }}"
+                                   value="{{ item_data or '' }}" {# Use item_data directly #}
+                                   size="50" class="form-control">
                             <button type="button" class="remove-agenda-item" style="margin-left: 5px;">-</button>
-                            {# Display errors for this specific item field #}
-                            {% if item_field.errors %}
-                                <div style="color: red;">
-                                {% for error in item_field.errors %}
-                                    <span>[{{ error }}]</span><br>
-                                {% endfor %}
-                                </div>
-                            {% endif %}
+                             {# Errors would be harder to display here without WTForms field object #}
                         </div>
                     {% endfor %}
                 </div>
-
-                {# Button to add more items - JS will handle it #}
                 <button type="button" id="add-agenda-item" style="margin-top: 5px;">+ Add Agenda Item</button>
             </div>
-            {# --- End: New Block for Agenda Items --- #}
 
-            {# Keep the rendering for minutes, action_items, etc. as they were #}
+             {# Minutes - Rendered normally #}
              <div>
                 {{ form.minutes.label }}<br>
-                {{ form.minutes(rows=10, cols=30) }}<br>
-                {% if form.minutes.errors %}
-                    {% for error in form.minutes.errors %}
-                        <span style="color: red;">[{{ error }}]</span>
-                    {% endfor %}
-                {% endif %}
+                {{ form.minutes(rows=10, cols=30, class="form-control") }}<br>
+                {% if form.minutes.errors %}{% for e in form.minutes.errors %}<span style="color:red;">[{{e}}]</span><br>{% endfor %}{% endif %}
             </div>
-             <div>
-                {{ form.action_items.label }}<br>
-                {{ form.action_items(rows=5, cols=30) }}<br>
-                {% if form.action_items.errors %}
-                    {% for error in form.action_items.errors %}
-                        <span style="color: red;">[{{ error }}]</span>
+
+            {# Action Items - Manual Render using data list #}
+            <div>
+                 {# Get label from form object #}
+                {{ form.action_items.label(class="form-label") }}<br>
+                <div id="action-items-container">
+                     {# Loop directly over action_items_list passed from route #}
+                    {% for item_data in action_items_list %}
+                        <div class="action-item-group" style="border: 1px solid #eee; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                            {# Description (TextArea) #}
+                            <div style="margin-bottom: 5px;">
+                                {# Manual Label #}
+                                <label for="action_items-{{ loop.index0 }}-description">Description</label><br>
+                                <textarea name="action_items-{{ loop.index0 }}-description"
+                                          id="action_items-{{ loop.index0 }}-description"
+                                          class="form-control" rows="2" style="width: 95%;">{{ item_data.get('description', '') }}</textarea>
+                            </div>
+                            {# Assigned To (Input Text) #}
+                            <div style="margin-bottom: 5px; display: inline-block; margin-right: 10px;">
+                                 <label for="action_items-{{ loop.index0 }}-assigned_to">Assigned To</label><br>
+                                <input type="text" name="action_items-{{ loop.index0 }}-assigned_to"
+                                       id="action_items-{{ loop.index0 }}-assigned_to"
+                                       value="{{ item_data.get('assigned_to', '') }}"
+                                       size="20" class="form-control">
+                           </div>
+                            {# Deadline (Input Date) #}
+                            <div style="margin-bottom: 5px; display: inline-block;">
+                                 <label for="action_items-{{ loop.index0 }}-deadline">Deadline</label><br>
+                                <input type="date" name="action_items-{{ loop.index0 }}-deadline"
+                                       id="action_items-{{ loop.index0 }}-deadline"
+                                       value="{{ item_data.get('deadline', '') }}"
+                                       class="form-control">
+                           </div>
+                            {# Remove button #}
+                            <button type="button" class="remove-action-item" style="margin-left: 10px; color: red; border: none; background: none; cursor: pointer; vertical-align: bottom;">Remove Action</button>
+                        </div>
                     {% endfor %}
-                {% endif %}
+                </div>
+                <button type="button" id="add-action-item-button" style="margin-top: 5px;">+ Add Action Item</button>
             </div>
+            {# --- End Action Items Block --- #}
+
         </fieldset>
         <div>
-            {{ form.submit() }}
+            {{ form.submit() }} {# Render submit button normally #}
         </div>
     </form>
     <p><a href="{{ url_for('index') }}">Back to Home</a></p>
-
 {% endblock %}
