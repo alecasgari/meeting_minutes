@@ -1,117 +1,111 @@
-{% extends 'base.html' %}
-
-{% block title %}Home{% endblock %}
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %} {# Use meeting title passed from route #}
 
 {% block content %}
-    <article>
-        <h2>{{ meeting.title }}</h2>
-        <p>
-            <strong>Meeting Date:</strong> {{ meeting.meeting_date.strftime('%Y-%m-%d') }} <br>
-            <strong>Recorded By:</strong> {{ meeting.author.username }} <br>
-            <strong>Date Recorded:</strong> {{ meeting.date_posted.strftime('%Y-%m-%d %H:%M') }}
+    {# Header section for basic meeting info #}
+    <div class="bg-light p-3 rounded mb-4 border"> {# Added border #}
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="mb-0">{{ meeting.title }}</h2>
+            {# Action buttons could potentially go here too if preferred #}
+        </div>
+        <p class="text-muted mb-0">
+            <small> {# Made text slightly smaller #}
+                Meeting Date: {{ meeting.meeting_date.strftime('%Y-%m-%d') }} |
+                Recorded By: {{ meeting.author.username }} |
+                Date Recorded: {{ meeting.date_posted.strftime('%Y-%m-%d %H:%M') }}
+            </small>
         </p>
+    </div>
 
-      
-
-
-
-
-        {# --- Attendees Section --- #}
-        {% if meeting.attendees %} {# Check if meeting object has attendees data saved #}
-            <section>
-                <h3>Attendees</h3>
-                {% if attendees_list %} {# Check if the parsed list has items #}
-                    <ul>
-                        {% for person in attendees_list %}
-                            <li>{{ person }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p>N/A</p> {# Parsed list was empty #}
-                {% endif %} {# Closes 'if attendees_list' #}
-            </section>
-        {% endif %} {# <--- ADDED: Closes 'if meeting.attendees' #}
-  
-  
-        {# --- Agenda Section --- #}
-        <section> {# Ensure Agenda also has a section tag #}
-            <h3>Agenda</h3>
-            {% if agenda_list %}
-                <ul>
-                    {% for item in agenda_list %}
-                        <li>{{ item }}</li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p>N/A</p>
-            {% endif %} {# Closes 'if agenda_list' #}
-        </section>
-        {# --- End Agenda Section --- #}
-  
-        {# --- Keep other sections like Minutes, Action Items below --- #}
-
-
-
-        {% if meeting.minutes %}
-        <section>
-            <h3>Minutes</h3>
-            <pre>{{ meeting.minutes }}</pre>
-        </section>
+    {# Attendees Section with List Group #}
+    <section class="mb-4">
+        <h3>Attendees</h3>
+        {% if attendees_list %}
+            <ul class="list-group list-group-flush"> {# Flush removes borders #}
+                {% for person in attendees_list %}
+                    <li class="list-group-item">{{ person }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-muted fst-italic">N/A</p> {# Italic text for N/A #}
         {% endif %}
+    </section>
 
+    {# Agenda Section with List Group #}
+    <section class="mb-4">
+        <h3>Agenda</h3>
+        {% if agenda_list %}
+             <ul class="list-group list-group-flush">
+                {% for item in agenda_list %}
+                    <li class="list-group-item">{{ item }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-muted fst-italic">N/A</p>
+        {% endif %}
+    </section>
 
+    {# Minutes Section #}
+    {% if meeting.minutes %}
+    <section class="mb-4">
+        <h3>Minutes</h3>
+        <div class="p-3 border rounded bg-white">
+             {# Replace newlines with <br> using Python's replace method in Jinja #}
+             {{ meeting.minutes.replace('\n', '<br>') | safe }}
+        </div>
+    </section>
+    {% endif %}
 
+    {# Action Items Section with Table #}
+    <section class="mb-4">
+        <h3>Action Items</h3>
+        {% if action_items_list %}
+            <div class="table-responsive"> {# Make table scroll horizontally on small screens #}
+                <table class="table table-sm table-striped table-bordered"> {# Small, striped, bordered table #}
+                    <thead class="table-light"> {# Light header background #}
+                        <tr>
+                            <th scope="col">Description</th>
+                            <th scope="col">Assigned To</th>
+                            <th scope="col">Deadline</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in action_items_list %}
+                            <tr>
+                                <td>{{ item.get('description', '') }}</td>
+                                <td>{{ item.get('assigned_to', '') }}</td>
+                                <td>{{ item.get('deadline', '') }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted fst-italic">N/A</p>
+        {% endif %}
+    </section>
 
-
-
-        {# --- Start: Updated Action Items Display Section --- #}
-        <section>
-            <h3>Action Items</h3>
-            {# Check if action_items_list exists and has items #}
-            {% if action_items_list %}
-                <ul> {# Use an unordered list #}
-                    {# Loop through the list of dictionaries passed from the route #}
-                    {% for item in action_items_list %}
-                        <li>
-                            {# Display description (use .get for safety) #}
-                            {{ item.get('description', 'N/A') }}
-
-                            {# Display assignee if present #}
-                            {% if item.get('assigned_to') %}
-                                <span style="font-style: italic; color: #555;">(Assigned: {{ item.get('assigned_to') }})</span>
-                            {% endif %}
-
-                            {# Display deadline if present #}
-                            {% if item.get('deadline') %}
-                                <span style="font-weight: bold; color: #888;">[Deadline: {{ item.get('deadline') }}]</span>
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p>N/A</p> {# Display N/A if the list is empty #}
-            {% endif %}
-        </section>
-        {# --- End: Updated Action Items Display Section --- #}
-
-        {# Keep other sections like PDF/Edit/Delete links below #}
-
-    </article>
+    {# Action Links Section with Buttons #}
     <hr>
+    <div class="mt-4 d-flex justify-content-between"> {# Use flexbox for button alignment #}
+        <div> {# Group left buttons #}
+            <a href="{{ url_for('generate_meeting_pdf', meeting_id=meeting.id) }}" class="btn btn-info btn-sm me-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-pdf" viewBox="0 0 16 16"><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2M9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5z"/><path d="M4.603 14.087a.8.8 0 0 1-1.03-.434L1.42 9.27a.8.8 0 0 1 .434-1.03l3.174-1.03a.8.8 0 0 1 1.03.434l1.03 3.174a.8.8 0 0 1-.434 1.03l-3.174 1.03a.8.8 0 0 1-.434 0M4 10.684V13h.684zm.25 1.316.77-1.03h-.98l-.98 1.03zM10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0"/></svg> Generate PDF
+            </a>
+            <a href="{{ url_for('edit_meeting', meeting_id=meeting.id) }}" class="btn btn-warning btn-sm me-2">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/></svg> Edit Meeting
+            </a>
+            {# Delete Form styled as a button #}
+            <form method="POST" action="{{ url_for('delete_meeting', meeting_id=meeting.id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm"
+                       onclick="return confirm('Are you sure you want to delete this meeting? This cannot be undone.');">
+                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3" viewBox="0 0 16 16"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm-1.115 1.21a.5.5 0 0 1 .563.41l.84 10.58a1 1 0 0 1-.997 1.123H4.885a1 1 0 0 1-.997-1.123l.84-10.58a.5.5 0 0 1 .563-.41zM5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5"/></svg> Delete Meeting
+                </button>
+            </form>
+        </div>
+        <div> {# Right aligned button #}
+            <a href="{{ url_for('meetings_list') }}" class="btn btn-secondary btn-sm">Back to My Meetings</a>
+        </div>
+    </div>
 
-    <p>
-        <a href="{{ url_for('generate_meeting_pdf', meeting_id=meeting.id) }}">Generate PDF</a> |
-        <a href="{{ url_for('edit_meeting', meeting_id=meeting.id) }}">Edit Meeting</a> |
-
-        {# --- Start Delete Form --- #}
-        <form method="POST" action="{{ url_for('delete_meeting', meeting_id=meeting.id) }}" style="display:inline; margin: 0; padding: 0;">
-            <input type="submit" value="Delete Meeting"
-                   class="btn btn-danger btn-sm" {# Optional classes for styling #}
-                   onclick="return confirm('Are you sure you want to delete this meeting? This cannot be undone.');">
-        </form>
-        {# --- End Delete Form --- #}
-         |
-        <a href="{{ url_for('meetings_list') }}">Back to My Meetings</a>
-    </p>
-
-    {% endblock %}
+{% endblock %}
