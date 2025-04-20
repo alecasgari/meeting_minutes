@@ -1,14 +1,20 @@
 # =========================================
 #          IMPORTS SECTION
 # =========================================
-
 # --- Standard Python Libraries ---
 import os
 from dotenv import load_dotenv
-load_dotenv() # Load environment variables from .env file
 import io
 import json
 import datetime
+
+# Inside app.py, after imports
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+print(f"DEBUG: Looking for .env file at: {dotenv_path}")
+# Add override=True here:
+load_ok = load_dotenv(dotenv_path=dotenv_path, verbose=True, override=True)
+print(f"DEBUG: load_dotenv() returned: {load_ok}")
+print(f"DEBUG: Value of DATABASE_URL from os.environ AFTER load: {os.environ.get('DATABASE_URL')}")
 
 # --- Flask Core Libraries ---
 from flask import (Flask, render_template, redirect, url_for,
@@ -44,6 +50,12 @@ from fpdf.enums import XPos, YPos
 # Ensure 'load_dotenv()' has been called earlier if using .env file
 
 app = Flask(__name__)
+
+# --- Load configurations from environment variables ---
+# This print is helpful too, to see value just before the check
+print(f"DEBUG: Value of DATABASE_URL from os.environ BEFORE check: {os.environ.get('DATABASE_URL')}")
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 if not app.config['SECRET_KEY']:
