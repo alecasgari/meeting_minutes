@@ -1,0 +1,25 @@
+# Git files
+.git/
+.gitignore
+
+# Docker files
+.dockerignore
+Dockerfile
+
+# Python virtual environment
+venv/
+*.pyc
+__pycache__/
+
+# Database file (if still exists)
+site.db*
+
+# Environment file
+.env
+
+# IDE folders
+.vscode/
+.idea/
+
+# Migrations folder (usually not needed inside the image)
+migrations/

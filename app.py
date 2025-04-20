@@ -4,6 +4,8 @@
 
 # --- Standard Python Libraries ---
 import os
+from dotenv import load_dotenv
+load_dotenv() # Load environment variables from .env file
 import io
 import json
 import datetime
@@ -18,6 +20,7 @@ from flask_bcrypt import Bcrypt
 from flask_login import (LoginManager, login_user, current_user,
                          logout_user, login_required, UserMixin)
 from flask_wtf import FlaskForm
+from flask_migrate import Migrate
 
 # --- WTForms ---
 from wtforms import (Form, StringField, PasswordField, BooleanField,  # Added Form
@@ -37,39 +40,43 @@ from fpdf.enums import XPos, YPos
 # =========================================
 
 
-# --- Flask App Initialization and Configuration ---
-# Example: app = Flask(__name__)
-#          app.config[...] = ...
-#          db = SQLAlchemy(app)
-#          bcrypt = Bcrypt(app)
-#          login_manager = LoginManager(app)
-#          ... etc ...
-# Create a Flask application instance
+# Ensure 'os', 'Flask', 'SQLAlchemy', 'Bcrypt', 'LoginManager', 'User' are imported
+# Ensure 'load_dotenv()' has been called earlier if using .env file
+
 app = Flask(__name__)
 
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+if not app.config['SECRET_KEY']:
+    raise ValueError("SECRET_KEY environment variable not set.")
 
-app.config['SECRET_KEY'] = 'a_very_secret_key_for_development_12345' # CHANGE THIS LATER!
-
-# Database Configuration: Use SQLite for local development
-# Get the base directory of the project
-basedir = os.path.abspath(os.path.dirname(__file__))
-# Set the database URI (path to the SQLite file)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'site.db')
-# Optional: Disable track modifications to save resources if you don't need it
+database_uri = os.environ.get('DATABASE_URL')
+if not database_uri or not database_uri.startswith('postgresql://'):
+    raise ValueError("DATABASE_URL environment variable is not set or invalid for PostgreSQL.")
+app.config['SQLALCHEMY_DATABASE_URI'] = database_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# --- End New Configurations ---
 
-# --- Initialize Extensions ---
-db = SQLAlchemy(app)   # Initialize SQLAlchemy with our app
-bcrypt = Bcrypt(app)   # Initialize Bcrypt with our app
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
+migrate = Migrate(app, db)
+login_manager.login_view = 'login'
+login_manager.login_message_category = 'info'
+
 @login_manager.user_loader
 def load_user(user_id):
-    # user_id is a string, convert it to integer for querying
-    return User.query.get(int(user_id))
-login_manager.login_view = 'login' # Route function name for the login page
-login_manager.login_message_category = 'info' # Bootstrap category for flash message
-# --- End Initialize Extensions ---
+    try:
+        # Using User.query.get() for now
+        return User.query.get(int(user_id))
+    except ValueError:
+        return None
+    except Exception as e:
+        # Basic error logging can be helpful
+        app.logger.error(f"Error loading user {user_id}: {e}")
+        return None
+
+# Flask-Migrate initialization will go here in the next step
+
+
 
 
 # Add UserMixin here         vvvvvvvvvv

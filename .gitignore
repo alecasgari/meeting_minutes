@@ -13,3 +13,5 @@ Thumbs.db
 
 # Instance folder (for Flask secrets, etc.)
 instance/"site.db" 
+
+.env

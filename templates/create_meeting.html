@@ -7,111 +7,113 @@
     <form method="POST" action="">
         {{ form.hidden_tag() }} {# CSRF protection #}
         <fieldset>
-            {# Simple Fields with Bootstrap Styling #}
-            <div class="mb-3"> {# Bootstrap margin bottom #}
+            {# Simple Fields - Rendered normally using WTForms #}
+            <div class="mb-3">
                 <label for="{{ form.title.id }}" class="form-label">{{ form.title.label.text }}</label>
-                {{ form.title(class="form-control", size=30) }} {# Added form-control #}
-                {% if form.title.errors %}{% for e in form.title.errors %}<div class="invalid-feedback d-block">{{e}}</div>{% endfor %}{% endif %} {# Bootstrap error styling #}
+                {{ form.title(class="form-control", size=30) }}
+                {% if form.title.errors %}{% for e in form.title.errors %}<div class="invalid-feedback d-block">{{e}}</div>{% endfor %}{% endif %}
             </div>
             <div class="mb-3">
                 <label for="{{ form.meeting_date.id }}" class="form-label">{{ form.meeting_date.label.text }}</label>
-                {{ form.meeting_date(class="form-control") }} {# Added form-control #}
+                {{ form.meeting_date(class="form-control") }}
                 {% if form.meeting_date.errors %}{% for e in form.meeting_date.errors %}<div class="invalid-feedback d-block">{{e}}</div>{% endfor %}{% endif %}
             </div>
 
-            {# Attendees - Manual Render with Bootstrap Styling #}
+            {# Attendees - Manual Render using data list passed from route #}
             <div class="mb-3">
-                <label class="form-label">{{ form.attendees.label.text }}</label>
+                <label class="form-label">{{ form.attendees.label.text }}</label> {# Get label from form object #}
                 <div id="attendees-container">
-                    {% for attendee_field in form.attendees %}
-                        <div class="attendee-item input-group mb-1"> {# Use input-group for inline button #}
+                    {# Loop directly over attendees_list passed from route #}
+                    {% for item_data in attendees_list %}
+                        <div class="attendee-item input-group mb-1">
                             <input type="text"
                                    name="attendees-{{ loop.index0 }}"
                                    id="attendees-{{ loop.index0 }}"
-                                   value="{{ attendee_field.data or '' }}"
-                                   class="form-control"> {# form-control class #}
-                            <button type="button" class="btn btn-outline-danger btn-sm remove-attendee-item">-</button> {# Bootstrap button styling #}
-                            {% if attendee_field.errors %}<div class="invalid-feedback d-block">{% for error in attendee_field.errors %}<span>[{{error}}]</span><br>{% endfor %}</div>{% endif %}
+                                   value="{{ item_data or '' }}" {# Use item_data directly #}
+                                   class="form-control">
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-attendee-item">-</button>
+                            {# Cannot easily display WTForms errors here #}
                         </div>
                     {% endfor %}
                 </div>
-                <button type="button" id="add-attendee-button" class="btn btn-secondary btn-sm mt-1">+ Add Attendee</button> {# Bootstrap button styling #}
+                <button type="button" id="add-attendee-button" class="btn btn-secondary btn-sm mt-1">+ Add Attendee</button>
             </div>
 
-            {# Agenda Items - Manual Render with Bootstrap Styling #}
+            {# Agenda Items - Manual Render using data list passed from route #}
             <div class="mb-3">
-                <label class="form-label">{{ form.agenda_items.label.text }}</label>
+                 <label class="form-label">{{ form.agenda_items.label.text }}</label> {# Get label from form object #}
                 <div id="agenda-items-container">
-                    {% for item_field in form.agenda_items %}
-                         <div class="agenda-item input-group mb-1"> {# Use input-group #}
+                    {# Loop directly over agenda_list passed from route #}
+                    {% for item_data in agenda_list %}
+                        <div class="agenda-item input-group mb-1">
                             <input type="text"
                                    name="agenda_items-{{ loop.index0 }}"
                                    id="agenda_items-{{ loop.index0 }}"
-                                   value="{{ item_field.data or '' }}"
-                                   class="form-control"> {# form-control class #}
-                            <button type="button" class="btn btn-outline-danger btn-sm remove-agenda-item">-</button> {# Bootstrap button styling #}
-                            {% if item_field.errors %}<div class="invalid-feedback d-block">{% for error in item_field.errors %}<span>[{{error}}]</span><br>{% endfor %}</div>{% endif %}
+                                   value="{{ item_data or '' }}" {# Use item_data directly #}
+                                   class="form-control">
+                            <button type="button" class="remove-agenda-item" style="margin-left: 5px;">-</button>
+                             {# Cannot easily display WTForms errors here #}
                         </div>
                     {% endfor %}
                 </div>
-                <button type="button" id="add-agenda-item" class="btn btn-secondary btn-sm mt-1">+ Add Agenda Item</button> {# Bootstrap button styling #}
+                <button type="button" id="add-agenda-item" class="btn btn-secondary btn-sm mt-1">+ Add Agenda Item</button>
             </div>
 
-             {# Minutes - Rendered normally with Bootstrap Styling #}
+             {# Minutes - Rendered normally #}
              <div class="mb-3">
                 <label for="{{ form.minutes.id }}" class="form-label">{{ form.minutes.label.text }}</label>
-                {{ form.minutes(rows=5, class="form-control") }} {# Reduced rows, added form-control #}
+                {{ form.minutes(rows=5, class="form-control") }}
                 {% if form.minutes.errors %}{% for e in form.minutes.errors %}<div class="invalid-feedback d-block">{{e}}</div>{% endfor %}{% endif %}
             </div>
 
-            {# Action Items - Manual Render with Bootstrap Styling and Grid #}
+            {# Action Items - Manual Render using data list passed from route #}
             <div class="mb-3">
-                <label class="form-label">{{ form.action_items.label.text }}</label>
+                 <label class="form-label">{{ form.action_items.label.text }}</label> {# Get label from form object #}
                 <div id="action-items-container">
-                    {% for action_item_form in form.action_items %}
-                        <div class="action-item-group border p-3 mb-3 rounded"> {# Added Bootstrap border/padding/margin/rounded classes #}
-                            {# Description #}
-                            <div class="mb-2"> {# Margin bottom #}
-                                <label for="action_items-{{ loop.index0 }}-description" class="form-label">{{ action_item_form.description.label.text }}</label>
+                     {# Loop directly over action_items_list passed from route #}
+                    {% for item_data in action_items_list %}
+                        <div class="action-item-group border p-3 mb-3 rounded">
+                            {# Description (TextArea) #}
+                            <div class="mb-2">
+                                <label for="action_items-{{ loop.index0 }}-description">Description</label><br>
                                 <textarea name="action_items-{{ loop.index0 }}-description"
                                           id="action_items-{{ loop.index0 }}-description"
-                                          class="form-control" rows="2">{{ action_item_form.description.data or '' }}</textarea>
-                                {% if action_item_form.description.errors %}{% for e in action_item_form.description.errors %}<div class="invalid-feedback d-block">{{e}}</div>{% endfor %}{% endif %}
+                                          class="form-control" rows="2">{{ item_data.get('description', '') }}</textarea>
+                                 {# Cannot easily display WTForms errors here #}
                             </div>
-                            {# Row for Assignee and Deadline #}
-                            <div class="row g-2 align-items-end"> {# Use row with gutter (g-2) and align items vertically to bottom #}
-                                <div class="col-md-5"> {# Assignee column (5/12 width on medium screens and up) #}
-                                    <label for="action_items-{{ loop.index0 }}-assigned_to" class="form-label">{{ action_item_form.assigned_to.label.text }}</label>
+                            {# Assigned To (Input Text) #}
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-5">
+                                    <label for="action_items-{{ loop.index0 }}-assigned_to">Assigned To</label><br>
                                     <input type="text" name="action_items-{{ loop.index0 }}-assigned_to"
                                            id="action_items-{{ loop.index0 }}-assigned_to"
-                                           value="{{ action_item_form.assigned_to.data or '' }}"
+                                           value="{{ item_data.get('assigned_to', '') }}"
                                            class="form-control">
-                                     {% if action_item_form.assigned_to.errors %}{% for e in action_item_form.assigned_to.errors %}<div class="invalid-feedback d-block">{{e}}</div>{% endfor %}{% endif %}
                                </div>
-                                <div class="col-md-5"> {# Deadline column (5/12 width on medium screens and up) #}
-                                    <label for="action_items-{{ loop.index0 }}-deadline" class="form-label">{{ action_item_form.deadline.label.text }}</label>
+                                {# Deadline (Input Date) #}
+                                <div class="col-md-5">
+                                     <label for="action_items-{{ loop.index0 }}-deadline">Deadline</label><br>
                                     <input type="date" name="action_items-{{ loop.index0 }}-deadline"
                                            id="action_items-{{ loop.index0 }}-deadline"
-                                           value="{{ action_item_form.deadline.data or '' }}"
+                                           value="{{ item_data.get('deadline', '') }}"
                                            class="form-control">
-                                     {% if action_item_form.deadline.errors %}{% for e in action_item_form.deadline.errors %}<div class="invalid-feedback d-block">{{e}}</div>{% endfor %}{% endif %}
                                </div>
-                               <div class="col-md-2"> {# Remove button column (2/12 width on medium screens and up) #}
-                                    <button type="button" class="btn btn-danger btn-sm w-100 remove-action-item">Remove</button> {# Bootstrap styled button, full width of its column #}
-                               </div>
+                                {# Remove button #}
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-danger btn-sm w-100 remove-action-item">Remove</button>
+                                </div>
                             </div> {# End row #}
-                        </div> {# End action-item-group #}
+                        </div>
                     {% endfor %}
                 </div>
-                <button type="button" id="add-action-item-button" class="btn btn-secondary btn-sm mt-1">+ Add Action Item</button> {# Bootstrap button #}
+                <button type="button" id="add-action-item-button" class="btn btn-secondary btn-sm mt-1">+ Add Action Item</button>
             </div>
             {# --- End Action Items Block --- #}
 
         </fieldset>
-        <div class="mt-3"> {# Margin top for submit button #}
-             {# Explicit submit button with Bootstrap style #}
+        <div class="mt-3">
              <button type="submit" class="btn btn-primary">{{ form.submit.label.text }}</button>
         </div>
     </form>
-    <p class="mt-3"><a href="{{ url_for('index') }}">Back to Home</a></p> {# Margin top #}
+    <p class="mt-3"><a href="{{ url_for('index') }}">Back to Home</a></p>
 {% endblock %}
