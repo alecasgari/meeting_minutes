@@ -333,7 +333,43 @@ def meeting_detail(meeting_id):
 
 
 
-# Ensure necessary imports: json, io, FPDF, XPos, YPos, Meeting, db, abort, make_response, login_required, current_user
+
+
+# Ensure FPDF is imported: from fpdf import FPDF
+# Ensure datetime is imported: import datetime
+
+class MyPDF(FPDF):
+    def __init__(self, orientation='P', unit='mm', format='A4', meeting_title="Meeting Minutes"):
+        super().__init__(orientation, unit, format)
+        self.meeting_title = meeting_title
+        # Store the actual datetime object for potential internal FPDF use
+        self.creation_datetime_obj = datetime.datetime.now()
+        # Store a formatted string specifically for display in the header
+        self.creation_date_str = self.creation_datetime_obj.strftime("%Y-%m-%d %H:%M")
+        # self.set_auto_page_break(auto=True, margin=15) # Optional: Keep if needed
+
+    def header(self):
+        self.set_font('Arial', 'B', 12)
+        title_w = self.get_string_width(self.meeting_title) + 6
+        doc_w = self.w
+        self.set_x((doc_w - title_w) / 2)
+        self.cell(title_w, 10, self.meeting_title, border=0, ln=False, align='C')
+        self.set_font('Arial', '', 8)
+        # Use the formatted string for display
+        self.cell(0, 10, f"Created: {self.creation_date_str}", border=0, ln=True, align='R')
+        self.ln(10)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='C')
+
+# --- End of MyPDF class ---
+
+
+
+
+# Ensure necessary imports: json, io, datetime, FPDF, MyPDF, XPos, YPos, Meeting, db, abort, make_response, login_required, current_user
 @app.route("/meeting/<int:meeting_id>/pdf")
 @login_required
 def generate_meeting_pdf(meeting_id):
@@ -341,78 +377,77 @@ def generate_meeting_pdf(meeting_id):
     if meeting.author != current_user:
         abort(403)
 
-    pdf = FPDF()
+    pdf_title = f'Meeting: {meeting.title}'
+    pdf = MyPDF(meeting_title=pdf_title)
+    pdf.alias_nb_pages()
     pdf.add_page()
     pdf.set_font('Arial', '', 12)
 
-    # --- Nested Helper Function (UPDATED to handle list of dicts for Action Items) ---
+    # --- Nested Helper Function ---
     def add_section(title, content):
         effective_width = pdf.w - pdf.l_margin - pdf.r_margin
         pdf.set_font('Arial', 'B', 14)
         pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font('Arial', '', 12)
 
-        if isinstance(content, list): # Handle lists (Agenda, Attendees, Action Items)
+        if isinstance(content, list):
             if content:
                 for item in content:
                     pdf.set_x(pdf.l_margin) # Reset X for each item
-                    # Check if the item itself is a dictionary (Action Item)
-                    if isinstance(item, dict):
-                        # Format and print structured Action Item
-                        desc = item.get('description', '') # Use get with default
+                    if isinstance(item, dict): # Action Item
+                        desc = item.get('description', '')
                         assignee = item.get('assigned_to', '')
                         deadline_str = item.get('deadline', '')
-                        # Format display string
-                        display_text = f"- {desc}"
-                        if assignee: display_text += f" [Assigned: {assignee}]"
-                        if deadline_str: display_text += f" (Deadline: {deadline_str})"
-                        pdf.multi_cell(effective_width, 5, display_text)
-                    else:
-                        # Handle simple list item (Agenda/Attendee)
+                        assignee_deadline_text = ""
+                        if assignee:
+                            assignee_deadline_text += f"Assigned: {assignee}"
+                        if deadline_str:
+                            if assignee: assignee_deadline_text += "  |  " # Separator
+                            assignee_deadline_text += f"Deadline: {deadline_str}"
+
+                        if assignee_deadline_text: # Print line 1 only if needed
+                            pdf.set_font('Arial', 'I', 10) # Italic, smaller
+                            pdf.multi_cell(effective_width, 4, assignee_deadline_text) # Smaller height
+                            pdf.set_x(pdf.l_margin) # Reset X
+
+                        pdf.set_font('Arial', '', 12) # Back to normal for description
+                        pdf.set_x(pdf.l_margin + 5)   # Indent description
+                        desc_width = effective_width - 5
+                        pdf.multi_cell(desc_width, 5, f"- {desc}" if desc else "- N/A")
+                        pdf.ln(3) # Space after this action item
+                    else: # Agenda / Attendee
                         pdf.multi_cell(effective_width, 5, f"- {str(item)}")
-                pdf.ln(2) # Add a bit of space after list items
+                # pdf.ln(2) # Removed this as space is added after each action item now
             else:
                  pdf.multi_cell(effective_width, 5, "N/A") # Empty list
-        else: # Handle simple string content (Minutes)
+        else: # Minutes (Simple string)
             pdf.multi_cell(effective_width, 5, content if content else "N/A")
         pdf.ln(5) # Space after section
     # --- End Nested Helper Function ---
 
-    # --- Add PDF Content (Title, Basic Info - unchanged) ---
-    pdf.set_font('Arial', 'B', 16)
-    pdf.cell(0, 10, f'Meeting Minutes: {meeting.title}', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
-    pdf.ln(10)
     pdf.set_font('Arial', '', 12)
     pdf.cell(0, 7, f'Date: {meeting.meeting_date.strftime("%Y-%m-%d")}', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.cell(0, 7, f'Recorded By: {meeting.author.username}', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(5)
 
-    # --- Parse JSON for ALL Lists ---
     try: agenda_list = json.loads(meeting.agenda or '[]')
-    except: agenda_list = [] # Simplified error handling
-
+    except: agenda_list = []
     try: attendees_list = json.loads(meeting.attendees or '[]')
-    except: attendees_list = [] # Simplified error handling
-
-    try: # Action Items (list of dicts)
+    except: attendees_list = []
+    try:
         action_items_list = json.loads(meeting.action_items or '[]')
         if not isinstance(action_items_list, list): action_items_list = []
-    except (json.JSONDecodeError, TypeError): action_items_list = []
-    # --- End Parse JSON ---
+    except: action_items_list = []
 
-    # --- Call Helper for Sections (action_items_list now passed) ---
     add_section('Attendees', attendees_list)
     add_section('Agenda', agenda_list)
     add_section('Minutes', meeting.minutes)
-    add_section('Action Items', action_items_list) # Pass list of dicts
-    # --- End Call ---
+    add_section('Action Items', action_items_list)
 
-    # --- Generate PDF Bytes (unchanged) ---
     pdf_buffer = io.BytesIO()
     pdf.output(pdf_buffer)
     pdf_bytes = pdf_buffer.getvalue()
 
-    # --- Create and Return Response (unchanged) ---
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = f'attachment; filename=meeting_{meeting.id}_{meeting.title.replace(" ", "_")}.pdf'
