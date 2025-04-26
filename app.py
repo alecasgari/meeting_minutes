@@ -32,8 +32,7 @@ if not app.config['SECRET_KEY']:
 
 database_uri = os.environ.get('DATABASE_URL')
 if not database_uri or not (database_uri.startswith('postgresql://') or database_uri.startswith('postgresql+psycopg2://')):
-    # In production, use app.logger.error or proper logging
-    print(f"FATAL ERROR: DATABASE_URL environment variable invalid or not set. Value: {database_uri}")
+    print(f"FATAL ERROR: DATABASE_URL environment variable invalid or not set. Value: {database_uri}") # Keep this specific print for crucial errors
     raise ValueError("DATABASE_URL environment variable is not set or invalid for PostgreSQL.")
 app.config['SQLALCHEMY_DATABASE_URI'] = database_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -50,13 +49,11 @@ login_manager.login_message_category = 'info'
 @login_manager.user_loader
 def load_user(user_id):
     try:
-        # Using User.query.get() is legacy but works for now
         return User.query.get(int(user_id))
     except ValueError:
         return None
     except Exception as e:
-        # Consider adding proper logging in production
-        # app.logger.error(f"Error loading user {user_id}: {e}")
+        app.logger.error(f"Error loading user {user_id}: {e}") # Configure app.logger for production
         return None
 
 # --- Models ---
@@ -110,7 +107,7 @@ class MeetingForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired()])
     meeting_date = DateField('Meeting Date', format='%Y-%m-%d', validators=[DataRequired()])
     attendees = FieldList(StringField('Attendee', validators=[Optional()]), min_entries=0, label='Attendees')
-    agenda_items = FieldList(StringField('Agenda Item', validators=[Optional()]), min_entries=0, label='Agenda Items')
+    agenda_items = FieldList(StringField('Agenda Item', validators=[Optional()]), min_entries=0, label='Agenda Items') # Made items optional
     minutes = TextAreaField('Minutes', validators=[Optional()])
     action_items = FieldList(FormField(ActionItemForm), min_entries=0, label='Action Items')
     submit = SubmitField('Save Meeting')
@@ -213,7 +210,6 @@ def new_meeting():
         flash('Your meeting has been created!', 'success')
         return redirect(url_for('meetings_list'))
 
-    # Pass blank form and empty lists for template compatibility with manual rendering
     return render_template('create_meeting.html', title='New Meeting', form=form, legend='New Meeting',
                            attendees_list=[], agenda_list=[], action_items_list=[])
 
@@ -250,11 +246,9 @@ def edit_meeting(meeting_id):
     if meeting.author != current_user:
         abort(403)
 
-    # Instantiate blank form for POST validation, but use data for GET rendering
-    form = MeetingForm()
+    form = MeetingForm() # Instantiate blank for POST validation check
 
     if form.validate_on_submit(): # Handle POST request
-        # Process WTForms data (which should be populated correctly from manual HTML fields)
         agenda_list_from_form = form.agenda_items.data
         agenda_list_filtered = [item for item in agenda_list_from_form if isinstance(item, str) and item.strip()]
         agenda_json_string = json.dumps(agenda_list_filtered)
@@ -271,7 +265,6 @@ def edit_meeting(meeting_id):
             serializable_action_items.append(item)
         action_items_json_string = json.dumps(serializable_action_items)
 
-        # Update DB object
         meeting.title = form.title.data
         meeting.meeting_date = form.meeting_date.data
         meeting.attendees = attendees_json_string
@@ -283,8 +276,7 @@ def edit_meeting(meeting_id):
         flash('Your meeting has been updated!', 'success')
         return redirect(url_for('meeting_detail', meeting_id=meeting.id))
 
-    elif request.method == 'GET': # Handle GET request (Pass populated form AND data lists)
-        # Parse data lists from JSON for the template's manual rendering loops
+    elif request.method == 'GET': # Handle GET request (Pass blank form + data lists for manual template rendering)
         try: agenda_list = json.loads(meeting.agenda or '[]')
         except: agenda_list = []
         try: attendees_list = json.loads(meeting.attendees or '[]')
@@ -296,22 +288,31 @@ def edit_meeting(meeting_id):
         if not isinstance(attendees_list, list): attendees_list = []
         if not isinstance(action_items_list, list): action_items_list = []
 
-        # Create form instance PRE-POPULATED with data (needed for simple fields & WTForms loop variables)
-        form_data = {
-            'title': meeting.title,
-            'meeting_date': meeting.meeting_date,
-            'attendees': attendees_list,
-            'agenda_items': agenda_list,
-            'minutes': meeting.minutes,
-            'action_items': action_items_list
-        }
-        form = MeetingForm(data=form_data) # Re-assign form with populated data for GET
+        # Create a different form instance for rendering, populated with simple fields
+        render_form = MeetingForm()
+        render_form.title.data = meeting.title
+        render_form.meeting_date.data = meeting.meeting_date
+        render_form.minutes.data = meeting.minutes
+        # We pass the lists separately for the template to render manually
+        return render_template('create_meeting.html', title='Edit Meeting',
+                               form=render_form, legend='Edit Meeting',
+                               attendees_list=attendees_list,
+                               agenda_list=agenda_list,
+                               action_items_list=action_items_list)
 
-    # Render template for GET or invalid POST (form has data/errors, lists are for manual loops)
+    # Render template if POST validation failed (pass lists again)
+    try: agenda_list = json.loads(meeting.agenda or '[]')
+    except: agenda_list = []
+    try: attendees_list = json.loads(meeting.attendees or '[]')
+    except: attendees_list = []
+    try: action_items_list = json.loads(meeting.action_items or '[]')
+    except: action_items_list = []
+    if not isinstance(agenda_list, list): agenda_list = []
+    if not isinstance(attendees_list, list): attendees_list = []
+    if not isinstance(action_items_list, list): action_items_list = []
+
     return render_template('create_meeting.html', title='Edit Meeting', form=form, legend='Edit Meeting',
-                           attendees_list=attendees_list,
-                           agenda_list=agenda_list,
-                           action_items_list=action_items_list)
+                           attendees_list=attendees_list, agenda_list=agenda_list, action_items_list=action_items_list)
 
 
 @app.route("/meeting/<int:meeting_id>/delete", methods=['POST'])
@@ -401,4 +402,4 @@ def generate_meeting_pdf(meeting_id):
     response.headers['Content-Disposition'] = f'attachment; filename=meeting_{meeting.id}_{meeting.title.replace(" ", "_")}.pdf'
     return response
 
-# End of file
+# --- End of File ---
